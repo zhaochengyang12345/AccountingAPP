@@ -7,65 +7,22 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-
+    runs-on: ubuntu-20.04
+    
     steps:
-    - name: Checkout code
+    - name: Checkout
       uses: actions/checkout@v3
-
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y git zip unzip openjdk-17-jdk wget autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev build-essential ccache
-
-    - name: Setup Buildozer
-      run: |
-        pip install --upgrade pip setuptools wheel
-        pip install buildozer cython==0.29.33
-        
-    - name: Check files
-      run: |
-        ls -la
-        echo "=== buildozer.spec ==="
-        cat buildozer.spec
-
-    - name: Cache Buildozer global directory
-      uses: actions/cache@v3
-      with:
-        path: .buildozer
-        key: buildozer-${{ hashFiles('buildozer.spec') }}
-
+      
     - name: Build with Buildozer
-      run: |
-        yes | buildozer -v android debug 2>&1 | tee build.log || true
+      uses: ArtemSBulgakov/buildozer-action@v1
+      id: buildozer
+      with:
+        command: buildozer android debug
+        buildozer_version: stable
         
-    - name: Show build log
-      if: always()
-      run: |
-        echo "=== Build completed, checking outputs ==="
-        ls -la bin/ 2>/dev/null || echo "No bin directory"
-        ls -la .buildozer/ 2>/dev/null || echo "No .buildozer directory"
-        tail -100 build.log || true
-
     - name: Upload APK
-      if: success()
       uses: actions/upload-artifact@v4
       with:
-        name: apk-debug
-        path: bin/*.apk
-        if-no-files-found: warn
-
-    - name: Upload build log
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-log
-        path: build.log
-        if-no-files-found: warn
+        name: apk
+        path: ${{ steps.buildozer.outputs.filename }}
 
