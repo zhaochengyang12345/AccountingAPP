@@ -1,0 +1,14 @@
+*.pyc
+__pycache__/
+*.db
+.vscode/
+.buildozer/
+bin/
+build/
+dist/
+*.egg-info/
+.eggs/
+*.so
+*.pyo
+.DS_Store
+*.log
