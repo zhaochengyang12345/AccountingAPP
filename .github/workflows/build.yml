@@ -10,25 +10,58 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
 
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.11'
 
-    - name: Install dependencies
+    - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y git zip unzip openjdk-17-jdk wget autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
-        pip install buildozer cython
+        sudo apt-get install -y git zip unzip openjdk-17-jdk wget autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev build-essential
+
+    - name: Install Python dependencies
+      run: |
+        pip install --upgrade pip
+        pip install buildozer cython==0.29.33
+
+    - name: Check buildozer.spec
+      run: |
+        if [ ! -f buildozer.spec ]; then
+          echo "Error: buildozer.spec not found"
+          exit 1
+        fi
+        cat buildozer.spec
+
+    - name: Make gradlew executable
+      run: |
+        chmod +x gradlew || true
 
     - name: Build with Buildozer
       run: |
-        buildozer android debug
+        yes | buildozer android debug || buildozer android debug
+
+    - name: List bin directory
+      if: always()
+      run: |
+        ls -la bin/ || echo "bin directory not found"
 
     - name: Upload APK
+      if: success()
       uses: actions/upload-artifact@v3
       with:
         name: apk-debug
         path: bin/*.apk
+
+    - name: Upload build logs
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-logs
+        path: |
+          .buildozer/logs/
+          buildozer.log
+
