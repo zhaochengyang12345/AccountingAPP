@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
 
     steps:
     - name: Checkout code
@@ -21,33 +22,36 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y git zip unzip openjdk-17-jdk wget autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev build-essential
+        sudo apt-get install -y git zip unzip openjdk-17-jdk wget autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev build-essential ccache
 
-    - name: Install Python dependencies
+    - name: Setup Buildozer
       run: |
-        pip install --upgrade pip
+        pip install --upgrade pip setuptools wheel
         pip install buildozer cython==0.29.33
-
-    - name: Check buildozer.spec
+        
+    - name: Check files
       run: |
-        if [ ! -f buildozer.spec ]; then
-          echo "Error: buildozer.spec not found"
-          exit 1
-        fi
+        ls -la
+        echo "=== buildozer.spec ==="
         cat buildozer.spec
 
-    - name: Make gradlew executable
-      run: |
-        chmod +x gradlew || true
+    - name: Cache Buildozer global directory
+      uses: actions/cache@v3
+      with:
+        path: .buildozer
+        key: buildozer-${{ hashFiles('buildozer.spec') }}
 
     - name: Build with Buildozer
       run: |
-        yes | buildozer android debug || buildozer android debug
-
-    - name: List bin directory
+        yes | buildozer -v android debug 2>&1 | tee build.log || true
+        
+    - name: Show build log
       if: always()
       run: |
-        ls -la bin/ || echo "bin directory not found"
+        echo "=== Build completed, checking outputs ==="
+        ls -la bin/ 2>/dev/null || echo "No bin directory"
+        ls -la .buildozer/ 2>/dev/null || echo "No .buildozer directory"
+        tail -100 build.log || true
 
     - name: Upload APK
       if: success()
@@ -55,13 +59,13 @@ jobs:
       with:
         name: apk-debug
         path: bin/*.apk
+        if-no-files-found: warn
 
-    - name: Upload build logs
-      if: failure()
+    - name: Upload build log
+      if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: build-logs
-        path: |
-          .buildozer/logs/
-          buildozer.log
+        name: build-log
+        path: build.log
+        if-no-files-found: warn
 
